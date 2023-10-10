@@ -30,6 +30,7 @@ class QueryGraphPrinter private constructor(
         val indices = graph.asMap().mapValues { nodeIndex++ }
 
         builder.append("digraph {\n")
+        builder.append("  rankdir=LR\n")
         for ((query, _) in graph.asMap()) {
             val thisIndex = indices[query]!!
             val validity = graph.validity(query)

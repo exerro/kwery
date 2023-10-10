@@ -10,6 +10,10 @@ import kotlin.reflect.KClass
 //       NTS: I think just have a query handler that sends the query over the
 //            network and emits changed upon a specific network event
 // TODO: invalidating mid-computation should restart the computation!
+// TODO: subscribe to values
+// TODO: remove cache for values that are no longer needed e.g. if invalidated
+//       and no dependents which are subscribed prune the tree
+// TODO: deadlock detection/reentrancy/cycling
 
 /** TODO */
 class QueryEngine private constructor(
@@ -113,13 +117,10 @@ class QueryEngine private constructor(
 
         if (mutableGraph.validity(query) == QueryGraph.Validity.VALID) {
             deferredMutex.withLock { deferred.remove(query) }
-            @Suppress("UNCHECKED_CAST")
             return (mutableGraph[query] as Result<T>).getOrThrow()
         }
 
         val dependencies = mutableSetOf<Query<*>>()
-
-        println("Evaluating $query")
 
         try {
             @Suppress("UNCHECKED_CAST")
@@ -143,7 +144,6 @@ class QueryEngine private constructor(
             }
         }
         catch (e: Throwable) {
-            println("Threw $e")
             mutableGraph.put(query, Result.failure(e), dependencies)
             deferredMutex.withLock { deferred.remove(query) }
             throw e
@@ -165,6 +165,8 @@ class QueryEngine private constructor(
             for (dependency in mutableGraph.dependencies(query)) {
                 try { evaluate(dependency) }
                 catch (e: Throwable) { /* do nothing */ }
+                if (mutableGraph.validity(query) == QueryGraph.Validity.STRONGLY_INVALID)
+                    break
             }
             mutableGraph.fixValidity(query)
         }
@@ -181,7 +183,6 @@ class QueryEngine private constructor(
         val ctx = object : QueryContext {
             context(CoroutineScope)
             override suspend fun <T> evaluate(query: Query<T>): T {
-                println(query)
                 dependencies += query
                 return engine.evaluate(query)
             }
