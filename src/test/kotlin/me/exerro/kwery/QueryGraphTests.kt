@@ -102,7 +102,7 @@ class QueryGraphTests {
         graph.put(TestQuery(2), 2, emptySet())
         graph.put(TestQuery(3), 3, setOf(TestQuery(1), TestQuery(2)), QueryGraph.Validity.WEAKLY_INVALID)
 
-        graph.fixValidity(TestQuery(3))
+        graph.validateWeakQuery(TestQuery(3))
         assert(graph.validity(TestQuery(3)) == QueryGraph.Validity.VALID)
     }
 
@@ -114,7 +114,7 @@ class QueryGraphTests {
             graph.put(TestQuery(2), 2, emptySet())
             graph.put(TestQuery(3), 3, setOf(TestQuery(1), TestQuery(2)), QueryGraph.Validity.WEAKLY_INVALID)
 
-            graph.fixValidity(TestQuery(3))
+            graph.validateWeakQuery(TestQuery(3))
             assert(graph.validity(TestQuery(3)) == QueryGraph.Validity.WEAKLY_INVALID)
         }
     }

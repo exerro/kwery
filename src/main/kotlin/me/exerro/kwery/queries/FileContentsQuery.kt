@@ -99,7 +99,8 @@ data class FileContentsQuery(val path: Path): Query<Result<ByteArray>> {
     class MockHandler(
         private val files: Map<Path, ByteArray>,
     ): QueryHandler<FileContentsQuery, Result<ByteArray>> {
-        constructor(vararg files: Pair<Path, String>): this(files.toMap().mapValues { (_, v) -> v.toByteArray() })
+        constructor(vararg files: Pair<Path, String>):
+            this(files.toMap().mapValues { (_, v) -> v.toByteArray() })
 
         context(QueryContext, CoroutineScope)
         override suspend fun handle(query: FileContentsQuery): Result<ByteArray> {

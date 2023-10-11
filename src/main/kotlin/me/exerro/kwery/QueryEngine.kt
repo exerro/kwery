@@ -9,34 +9,48 @@ import kotlin.reflect.KClass
 // TODO: work out how this would work over a network
 //       NTS: I think just have a query handler that sends the query over the
 //            network and emits changed upon a specific network event
-// TODO: invalidating mid-computation should restart the computation!
-// TODO: subscribe to values
-// TODO: remove cache for values that are no longer needed e.g. if invalidated
-//       and no dependents which are subscribed prune the tree
 // TODO: deadlock detection/reentrancy/cycling
 
-/** TODO */
+/**
+ * A query engine wraps a [QueryGraph] and facilitates re-evaluating queries
+ * when necessary. As an implementor of [QueryContext], it exposes an [evaluate]
+ * method to return the result of a query. This will use information from its
+ * embedded query graph to determine what needs to be re-evaluated so that an
+ * up-to-date value is always returned. Evaluation of a specific query is
+ * delegated to a query handler, provided by a [Builder].
+ *
+ * Additionally, this class accounts for changing query handlers, for example
+ * file content readers with FS watchers. When a query handler changes, the
+ * query graph is invalidated and potentially sparsely re-evaluated.
+ */
 class QueryEngine private constructor(
     graph: MutableQueryGraph,
     handlers: Map<KClass<out Query<*>>, QueryHandler<*, *>>,
 ): QueryContext {
-    /** TODO */
+    /**
+     * Thrown when there are two or more handlers registered for a particular
+     * class of query.
+     */
     @Suppress("CanBeParameter", "MemberVisibilityCanBePrivate")
     class MultipleHandlersException(
         val queryClass: KClass<out Query<*>>,
     ): RuntimeException("Multiple handlers for query type: ${queryClass.qualifiedName}")
 
-    /** TODO */
-    class QueryNotHandledException(query: Query<*>): RuntimeException("Query not handled: $query")
+    /**
+     * Thrown when trying to evaluate a query which does not have a
+     * corresponding handler.
+     */
+    @Suppress("CanBeParameter", "MemberVisibilityCanBePrivate")
+    class QueryNotHandledException(
+        val query: Query<*>
+    ): RuntimeException("Query not handled: $query")
 
-    /** TODO */
+    /** Builder for [QueryEngine]s. Add query handlers then [build]. */
     class Builder {
-        /** TODO */
         fun build(): QueryEngine {
             return QueryEngine(graph, handlers)
         }
 
-        /** TODO */
         fun <Q: Query<T>, T> addQueryHandler(
             queryClass: KClass<Q>,
             handler: QueryHandler<Q, T>,
@@ -48,7 +62,6 @@ class QueryEngine private constructor(
             return this
         }
 
-        /** TODO */
         inline fun <reified Q: Query<T>, reified T> addQueryHandler(
             handler: QueryHandler<Q, T>,
         ) = addQueryHandler(
@@ -56,7 +69,6 @@ class QueryEngine private constructor(
             handler = handler,
         )
 
-        /** TODO */
         fun <Q: Query<T>, T> addQueryHandler(
             queryClass: KClass<Q>,
             provider: QueryHandlerProvider,
@@ -65,7 +77,6 @@ class QueryEngine private constructor(
             handler = provider.provideHandler(queryClass)
         )
 
-        /** TODO */
         inline fun <reified Q: Query<T>, reified T> addQueryHandler(
             provider: QueryHandlerProvider,
         ) = addQueryHandler(
@@ -73,12 +84,14 @@ class QueryEngine private constructor(
             provider = provider,
         )
 
-        /** TODO */
+        /**
+         * Set the underlying graph to be used by the engine from the beginning.
+         * The provided graph will be cloned and therefore not mutated.
+         *
+         * One use case would be to load a serialized graph from disk.
+         */
         fun setGraph(graph: QueryGraph): Builder {
-            this.graph = when (graph) {
-                is MutableQueryGraph -> graph
-                else -> graph.clone()
-            }
+            this.graph = graph.clone()
             return this
         }
 
@@ -86,10 +99,8 @@ class QueryEngine private constructor(
         private val handlers = mutableMapOf<KClass<out Query<*>>, QueryHandler<*, *>>()
     }
 
-    /** TODO */
     val graph: QueryGraph = graph
 
-    /** TODO */
     context (CoroutineScope)
     override suspend fun <T> evaluate(query: Query<T>): T {
         deferredMutex.lock()
@@ -168,7 +179,7 @@ class QueryEngine private constructor(
                 if (mutableGraph.validity(query) == QueryGraph.Validity.STRONGLY_INVALID)
                     break
             }
-            mutableGraph.fixValidity(query)
+            mutableGraph.validateWeakQuery(query)
         }
     }
 

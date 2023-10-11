@@ -1,9 +1,26 @@
 package me.exerro.kwery
 
-/** TODO */
+/**
+ * Implementation of a [QueryGraph] allowing mutation.
+ */
 class MutableQueryGraph: QueryGraph {
-    /** TODO */
-    fun <T> put(query: Query<T>, value: Result<T>, dependencies: Set<Query<*>>, validity: QueryGraph.Validity = QueryGraph.Validity.VALID) {
+    /**
+     * Provide a [value] for the specified [query] and re-assign its
+     * [dependencies], i.e. the set of queries used in its evaluation.
+     *
+     * A [validity] may also be provided, typically used when de-serializing
+     * a query graph. See [QueryGraphSerializer].
+     *
+     * If the value has changed from what was previously stored for the query,
+     * all dependents of the query will be weakly invalidated and direct
+     * dependents will be strongly invalidated.
+     */
+    fun <T> put(
+        query: Query<T>,
+        value: Result<T>,
+        dependencies: Set<Query<*>>,
+        validity: QueryGraph.Validity = QueryGraph.Validity.VALID
+    ) {
         if (nodeValues[query] != value)
             notifyChanged(query)
 
@@ -19,12 +36,17 @@ class MutableQueryGraph: QueryGraph {
         nodeValues[query] = value
     }
 
-    /** TODO */
+    /** Shorthand for [put] wrapping the [value] as a [Result.success]. */
     @JvmName("putValue")
     fun <T> put(query: Query<T>, value: T, dependencies: Set<Query<*>>, validity: QueryGraph.Validity = QueryGraph.Validity.VALID) =
         put(query, Result.success(value), dependencies, validity)
 
-    /** TODO */
+    /**
+     * Strongly invalidate [query] and weakly invalidate all transitive
+     * dependent queries.
+     *
+     * @see remove
+     */
     fun invalidate(query: Query<*>) {
         for (dependent in transitiveDependents(query))
             validity[dependent] = QueryGraph.Validity.WEAKLY_INVALID
@@ -32,7 +54,14 @@ class MutableQueryGraph: QueryGraph {
         validity[query] = QueryGraph.Validity.STRONGLY_INVALID
     }
 
-    /** TODO */
+    /**
+     * Strongly invalidate all direct dependent queries, weakly invalidate all
+     * transitive dependent queries, and remove all associated information
+     * related to [query] from the graph, including its cached value, validity,
+     * and dependency information.
+     *
+     * @see invalidate
+     */
     fun remove(query: Query<*>) {
         notifyChanged(query)
 
@@ -45,12 +74,15 @@ class MutableQueryGraph: QueryGraph {
         validity.remove(query)
     }
 
-    // TODO: Add a way to set validity? engine could then strongly invalidate
-    //       changed queries rather than removing them
-    //       In fact, do we ever want to remove something?
-
-    /** TODO */
-    fun fixValidity(query: Query<*>) {
+    /**
+     * Fix the validity of the specified query. If the query is weakly invalid
+     * and all its dependencies are valid, it will be marked as valid.
+     *
+     * This is used during the evaluation of this query - after all its
+     * dependencies have maybe been re-evaluated, this may be called to make
+     * [query] valid without re-evaluating it unnecessarily.
+     */
+    fun validateWeakQuery(query: Query<*>) {
         if (validity[query] != QueryGraph.Validity.WEAKLY_INVALID) return
 
         for (dependency in dependencies[query] ?: emptySet()) {
