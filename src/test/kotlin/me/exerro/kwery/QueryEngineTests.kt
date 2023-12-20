@@ -13,6 +13,25 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
+data class CanonicalTestQuery1(val value: Int): Query<Int>
+data class CanonicalTestQuery2(val value: String): Query<String>
+
+@Canonical
+object CanonicalTestQuery1Handler: QueryHandler<CanonicalTestQuery1, Int> {
+    context (QueryContext, CoroutineScope)
+    override suspend fun handle(query: CanonicalTestQuery1): Int {
+        return query.value
+    }
+}
+
+@Canonical
+object CanonicalTestQuery2Handler: QueryHandler<CanonicalTestQuery2, String> {
+    context (QueryContext, CoroutineScope)
+    override suspend fun handle(query: CanonicalTestQuery2): String {
+        return query.value
+    }
+}
+
 class SimpleHandler(
     private val delay: Duration,
     private val sumQueries: Boolean,
@@ -307,5 +326,34 @@ class QueryEngineTests {
             }
         }
         assertEquals(4, handler.timesHandled)
+    }
+
+    @Test
+    fun testFindsCanonicalHandler() {
+        val engine = QueryEngine.Builder()
+            .addCanonicalQueryHandler<CanonicalTestQuery1, _>()
+            .addCanonicalQueryHandler<CanonicalTestQuery2, _>()
+            .build()
+
+        runBlocking {
+            val result1 = engine.evaluate(CanonicalTestQuery1(5))
+            val result2 = engine.evaluate(CanonicalTestQuery2("hello"))
+            assertEquals(5, result1)
+            assertEquals("hello", result2)
+        }
+    }
+
+    @Test
+    fun testFindsCanonicalHandlers() {
+        val engine = QueryEngine.Builder()
+            .addCanonicalQueryHandlers("me.exerro.kwery")
+            .build()
+
+        runBlocking {
+            val result1 = engine.evaluate(CanonicalTestQuery1(5))
+            val result2 = engine.evaluate(CanonicalTestQuery2("hello"))
+            assertEquals(5, result1)
+            assertEquals("hello", result2)
+        }
     }
 }

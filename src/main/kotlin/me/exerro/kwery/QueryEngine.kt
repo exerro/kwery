@@ -1,14 +1,16 @@
 package me.exerro.kwery
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import me.exerro.kwery.QueryEngine.Builder
 import me.exerro.observables.ObservableConnection
+import org.reflections.Reflections
 import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
 
-// TODO: work out how this would work over a network
-//       NTS: I think just have a query handler that sends the query over the
-//            network and emits changed upon a specific network event
 // TODO: deadlock detection/reentrancy/cycling
 
 /**
@@ -40,7 +42,7 @@ class QueryEngine private constructor(
      * Thrown when trying to evaluate a query which does not have a
      * corresponding handler.
      */
-    @Suppress("CanBeParameter", "MemberVisibilityCanBePrivate")
+    @Suppress("MemberVisibilityCanBePrivate")
     class QueryNotHandledException(
         val query: Query<*>
     ): RuntimeException("Query not handled: $query")
@@ -50,6 +52,65 @@ class QueryEngine private constructor(
         fun build(): QueryEngine {
             return QueryEngine(graph, handlers)
         }
+
+        /**
+         * Adds query handlers by searching for [QueryHandler] objects which
+         * are annotated with [Canonical].
+         */
+        fun addCanonicalQueryHandlers(
+            packageName: String,
+        ): Builder {
+            val r = reflections.getOrPut(packageName) {
+                Reflections(packageName)
+            }
+            val types = r
+                .getTypesAnnotatedWith(Canonical::class.java)
+                .mapNotNull { it.kotlin.objectInstance }
+                .mapNotNull { it as? QueryHandler<*, *> }
+
+            for (handler in types) {
+                val queryClass = handler::class.supertypes[0].arguments[0].type!!.classifier!! as KClass<*>
+
+                if (!queryClass.isSubclassOf(Query::class))
+                    error("Canonical query handler must handle subclass of Query")
+
+                @Suppress("UNCHECKED_CAST")
+                addQueryHandler(queryClass as KClass<Query<*>>, handler as QueryHandler<Query<Any?>, Any?>)
+            }
+
+            return this
+        }
+
+        /**
+         * Adds a query handler by searching for [QueryHandler] objects which
+         * are annotated with [Canonical] and handle the specific query class
+         * provided.
+         */
+        fun <Q: Query<T>, T> addCanonicalQueryHandler(
+            queryClass: KClass<Q>,
+        ): Builder {
+            val packageName = queryClass.qualifiedName!!
+                .substringBeforeLast('.', missingDelimiterValue = "")
+            val r = reflections.getOrPut(packageName) { Reflections(packageName) }
+            val types = r
+                .getTypesAnnotatedWith(Canonical::class.java)
+                .mapNotNull { it.kotlin.objectInstance }
+                .mapNotNull { it as? QueryHandler<*, *> }
+                .filter { it::class.supertypes[0].arguments[0].type!!.classifier == queryClass }
+
+            require(types.size == 1) {
+                "Canonical query handler must have exactly one implementation (has ${types.size})"
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val handler = types.first() as QueryHandler<Q, T>
+
+            return addQueryHandler(queryClass, handler)
+        }
+
+        /** @see addCanonicalQueryHandlers */
+        inline fun <reified Q: Query<T>, T> addCanonicalQueryHandler() =
+            addCanonicalQueryHandler(Q::class)
 
         fun <Q: Query<T>, T> addQueryHandler(
             queryClass: KClass<Q>,
@@ -62,7 +123,7 @@ class QueryEngine private constructor(
             return this
         }
 
-        inline fun <reified Q: Query<T>, reified T> addQueryHandler(
+        inline fun <reified Q: Query<T>, T> addQueryHandler(
             handler: QueryHandler<Q, T>,
         ) = addQueryHandler(
             queryClass = Q::class,
@@ -95,6 +156,7 @@ class QueryEngine private constructor(
             return this
         }
 
+        private val reflections = mutableMapOf<String, Reflections>()
         private var graph = MutableQueryGraph()
         private val handlers = mutableMapOf<KClass<out Query<*>>, QueryHandler<*, *>>()
     }

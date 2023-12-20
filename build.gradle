@@ -13,9 +13,11 @@ repositories() {
 
 dependencies {
     implementation 'me.exerro:observables-kt:1.2.0'
+    implementation "org.jetbrains.kotlin:kotlin-reflect:1.9.10"
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.5.1'
+    implementation 'org.reflections:reflections:0.10.2'
 
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
 }
@@ -25,12 +27,9 @@ test {
 }
 
 tasks.withType(KotlinCompile).configureEach {
-    kotlinOptions.freeCompilerArgs += "-Xuse-k2"
     kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
     kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.contracts.ExperimentalContracts"
     kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.time.ExperimentalTime"
-    kotlinOptions.freeCompilerArgs += "-language-version"
-    kotlinOptions.freeCompilerArgs += "1.9"
 }
 
 publishing {
@@ -38,7 +37,7 @@ publishing {
         mavenJava(MavenPublication) {
             groupId = 'me.exerro'
             artifactId = 'kwery'
-            version = '0.1.0'
+            version = '0.2.0'
 
             from components.java
         }
