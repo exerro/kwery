@@ -31,6 +31,7 @@ class QueryGraphPrinter private constructor(
 
         builder.append("digraph {\n")
         builder.append("  rankdir=LR\n")
+        builder.append("  node [fontname=\"Arial\"]\n")
         for ((query, _) in graph.asMap()) {
             val thisIndex = indices[query]!!
             val validity = graph.validity(query)
@@ -43,7 +44,7 @@ class QueryGraphPrinter private constructor(
                 .replace("\"", "\\\"")
                 .replace("\\", "\\\\")
 
-            builder.append("  n$thisIndex [label=\"$prettyPrinted\", color=$outlineColour, shape=ellipse]\n")
+            builder.append("  n$thisIndex [label=\"$prettyPrinted\", color=$outlineColour, shape=box, style=rounded]\n")
 
             for (dependency in graph.dependencies(query)) {
                 val dependencyIndex = indices[dependency]!!

@@ -13,6 +13,13 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
+data class QueryWithDefaultHandlerTest(
+    val value: Int,
+): QueryWithDefaultHandler<Int> {
+    context(QueryContext, CoroutineScope)
+    override suspend fun handleByDefault() = value
+}
+
 data class CanonicalTestQuery1(val value: Int): Query<Int>
 data class CanonicalTestQuery2(val value: String): Query<String>
 
@@ -354,6 +361,16 @@ class QueryEngineTests {
             val result2 = engine.evaluate(CanonicalTestQuery2("hello"))
             assertEquals(5, result1)
             assertEquals("hello", result2)
+        }
+    }
+
+    @Test
+    fun testQueryWithDefaultHandler() {
+        val engine = QueryEngine.Builder().build()
+
+        runBlocking {
+            val result = engine.evaluate(QueryWithDefaultHandlerTest(5))
+            assertEquals(5, result)
         }
     }
 }

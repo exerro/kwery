@@ -198,6 +198,7 @@ class QueryEngine private constructor(
         try {
             @Suppress("UNCHECKED_CAST")
             val handler = (handlerClassLookup[query::class]
+                ?: (query as? QueryWithDefaultHandler<T>)?.defaultHandler
                 ?: throw QueryNotHandledException(query))
                 as QueryHandler<Query<Any?>, Any?>
             val engine = this@QueryEngine
@@ -242,36 +243,6 @@ class QueryEngine private constructor(
                     break
             }
             mutableGraph.validateWeakQuery(query)
-        }
-    }
-
-    context (CoroutineScope)
-    private suspend fun <T> executeQuery(query: Query<T>): Result<T> {
-        @Suppress("UNCHECKED_CAST")
-        val handler = (handlerClassLookup[query::class]
-            ?: throw QueryNotHandledException(query))
-            as QueryHandler<Query<Any?>, Any?>
-        val dependencies = mutableSetOf<Query<*>>()
-        val engine = this@QueryEngine
-        val ctx = object : QueryContext {
-            context(CoroutineScope)
-            override suspend fun <T> evaluate(query: Query<T>): T {
-                dependencies += query
-                return engine.evaluate(query)
-            }
-        }
-
-        return try {
-            Result.success(with(ctx) {
-                val value = handler.handle(query)
-                mutableGraph.put(query, Result.success(value), dependencies)
-                @Suppress("UNCHECKED_CAST")
-                value as T
-            })
-        }
-        catch (e: Throwable) {
-            mutableGraph.put(query, Result.failure(e), dependencies)
-            Result.failure(e)
         }
     }
 
