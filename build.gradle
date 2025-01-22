@@ -27,9 +27,12 @@ test {
 }
 
 tasks.withType(KotlinCompile).configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xuse-k2"
     kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
     kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.contracts.ExperimentalContracts"
     kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.time.ExperimentalTime"
+    kotlinOptions.freeCompilerArgs += "-language-version"
+    kotlinOptions.freeCompilerArgs += "1.9"
 }
 
 publishing {

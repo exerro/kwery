@@ -74,6 +74,10 @@ class MutableQueryGraph: QueryGraph {
         validity.remove(query)
     }
 
+    // TODO: Add a way to set validity? engine could then strongly invalidate
+    //       changed queries rather than removing them
+    //       In fact, do we ever want to remove something?
+
     /**
      * Fix the validity of the specified query. If the query is weakly invalid
      * and all its dependencies are valid, it will be marked as valid.

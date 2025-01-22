@@ -9,7 +9,7 @@ Kwery is a general purpose query engine primarily intended for compilers.
 * Queries can depend on other queries, which are evaluated during the execution
   of the query as needed.
 * Queries are cached by default and are lazily re-evaluated when their
-  dependencies change.
+  dependencies change, upon being evaluated themselves.
 * Queries are evaluated as coroutines and can suspend arbitrarily.
 * Query graphs can be safely and sparsely serialized and deserialized, allowing
   persistent caching of query results.

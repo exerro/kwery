@@ -13,6 +13,11 @@ import kotlin.reflect.full.isSubclassOf
 
 // TODO: deadlock detection/reentrancy/cycling
 
+// TODO?: work out how this would work over a network
+//       NTS: I think just have a query handler that sends the query over the
+//            network and emits changed upon a specific network event
+// TODO?: invalidating mid-computation should restart the computation!
+
 /**
  * A query engine wraps a [QueryGraph] and facilitates re-evaluating queries
  * when necessary. As an implementor of [QueryContext], it exposes an [evaluate]
@@ -152,7 +157,10 @@ class QueryEngine private constructor(
          * One use case would be to load a serialized graph from disk.
          */
         fun setGraph(graph: QueryGraph): Builder {
-            this.graph = graph.clone()
+            this.graph = when (graph) {
+                is MutableQueryGraph -> graph
+                else -> graph.clone()
+            }
             return this
         }
 
@@ -190,6 +198,7 @@ class QueryEngine private constructor(
 
         if (mutableGraph.validity(query) == QueryGraph.Validity.VALID) {
             deferredMutex.withLock { deferred.remove(query) }
+            @Suppress("UNCHECKED_CAST")
             return (mutableGraph[query] as Result<T>).getOrThrow()
         }
 
